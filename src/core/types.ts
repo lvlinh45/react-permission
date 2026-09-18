@@ -117,6 +117,22 @@ export interface PermissionChecker<
 
   /**
    * Checks if ANY of the given permissions are granted.
+   * Alias for `hasAnyPermission`.
+   */
+  canAny: (
+    permissions: readonly StringWithAutocomplete<TPermission>[],
+  ) => boolean;
+
+  /**
+   * Checks if ALL of the given permissions are granted.
+   * Alias for `hasAllPermissions`.
+   */
+  canAll: (
+    permissions: readonly StringWithAutocomplete<TPermission>[],
+  ) => boolean;
+
+  /**
+   * Checks if ANY of the given permissions are granted.
    */
   hasAnyPermission: (
     permissions: readonly StringWithAutocomplete<TPermission>[],

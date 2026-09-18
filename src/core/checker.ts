@@ -117,6 +117,8 @@ export function createPermissionChecker<
     roles: rolesList,
     can,
     cannot,
+    canAny: hasAnyPermission,
+    canAll: hasAllPermissions,
     hasRole,
     hasAnyRole,
     hasAllRoles,

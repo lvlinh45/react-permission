@@ -13,7 +13,7 @@ describe('usePermission', () => {
     expect(() => {
       renderHook(() => usePermission());
     }).toThrowError(
-      /usePermission must be used within a <PermissionProvider>/,
+      /\[react-permission-control\] usePermission must be used within a <PermissionProvider>/,
     );
 
     console.error = consoleError;

@@ -1,61 +1,77 @@
-# react-permission
+<div align="center">
 
-> A lightweight, strongly-typed, framework-agnostic React authorization and access-control library.
+# 🛡️ react-permission-control
 
-[![npm version](https://img.shields.io/badge/npm-v1.0.0-blue.svg)](https://www.npmjs.com/package/react-permission)
-[![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue.svg)](https://www.typescriptlang.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+**The lightweight, type-safe authorization library for React applications.**
 
-`react-permission` provides a complete, developer-friendly authorization toolkit for React applications. It allows you to control UI rendering and application behavior declaratively using permissions, roles, multi-role conditions, custom predicates, and programmatic checks.
+[![npm version](https://img.shields.io/npm/v/react-permission-control.svg?style=flat-square)](https://www.npmjs.com/package/react-permission-control)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/react-permission-control?style=flat-square&color=success)](https://bundlephobia.com/package/react-permission-control)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Strict%20Types-blue.svg?style=flat-square)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](https://github.com/lvlinh45/react-permission/pulls)
+
+<p align="center">
+  Control UI rendering, component visibility, and application logic declaratively with RBAC/ABAC rules, permission guards, and hooks.
+</p>
+
+[Installation](#-installation) • [Quick Start](#-quick-start) • [Features](#-why-react-permission-control) • [Usage Recipes](#-usage-recipes) • [TypeScript Guide](#-typescript-guide) • [API Reference](#-api-reference)
+
+</div>
 
 ---
 
-## ✨ Features
+## 🚀 Why react-permission-control?
 
-- 🎯 **Declarative `<Can>` Component**: Render or hide elements based on permissions, roles, or custom logic with fallback UI support.
-- ⚡ **Type-Safe & Autocomplete First**: Full TypeScript generics that provide IDE autocomplete for your application's specific permission and role union types.
-- 🚀 **High Performance ($O(1)$)**: Fast Set-based lookups with zero redundant array allocations.
-- 🪶 **Zero Runtime Dependencies**: Completely self-contained with only `react` as a peer dependency (`>=18.0.0`, React 19 fully compatible).
-- 🌐 **SSR & Framework Agnostic**: Works seamlessly with Next.js (App & Pages Router), Remix, Vite SSR, React Router, Expo, and standard React apps. No access to browser-only globals on startup.
-- 🛡️ **Standalone Engine**: Use `createPermissionChecker` anywhere outside React (Node.js, server actions, route guards, CLI utilities, and services).
-- 🧩 **Render Prop & Fallback Support**: Easily pass `{ allowed, checker }` to children or render dedicated unauthorized components.
-- 🌲 **Tree-Shakeable**: Configured with `sideEffects: false` and dual ESM/CJS outputs.
+Most access-control solutions in React are either **too heavyweight and complex** (requiring extensive policy DSLs and boilerplate) or **too primitive** (custom context wrappers that cause unnecessary re-renders and lack type safety).
+
+`react-permission-control` strikes the sweet spot:
+
+| Feature | `react-permission-control` | CASL (`@casl/react`) | Custom Context Boilerplate |
+| :--- | :---: | :---: | :---: |
+| **Bundle Size** | **< 1.5 KB** (gzipped) | ~8 KB | Varies |
+| **Dependencies** | **0** (Only React peer) | Multiple | 0 |
+| **TypeScript Autocomplete** | **Native Generics** | Requires complex types | Manual |
+| **Lookup Speed** | **$O(1)$ Hash Set** | Rule iteration | $O(N)$ Array scans |
+| **Standalone Engine** | **Included** (`createPermissionChecker`) | Included | Manual |
+| **Render Prop & Fallback** | **First-class** | Component wrapper | Manual |
+| **React 18 & 19 Ready** | **Yes** | Yes | Depends |
+| **SSR / Next.js / Remix Safe** | **Yes (Zero Browser Globals)** | Yes | Depends |
 
 ---
 
 ## 📦 Installation
 
 ```bash
-npm install react-permission
-```
+# npm
+npm install react-permission-control
 
-or with yarn / pnpm / bun:
+# yarn
+yarn add react-permission-control
 
-```bash
-yarn add react-permission
-# or
-pnpm add react-permission
-# or
-bun add react-permission
+# pnpm
+pnpm add react-permission-control
+
+# bun
+bun add react-permission-control
 ```
 
 ---
 
-## 🚀 Quick Start
+## ⚡ 60-Second Quick Start
 
-### 1. Wrap your application in `PermissionProvider`
+### 1. Setup Provider
 
-Supply active permissions and roles for the current user session:
+Wrap your app with `<PermissionProvider />` and pass the authenticated user's permissions and roles:
 
 ```tsx
 import React from 'react';
-import { PermissionProvider } from 'react-permission';
+import { PermissionProvider } from 'react-permission-control';
 import App from './App';
 
-function Root() {
+export function Root() {
   const user = {
     roles: ['editor'],
-    permissions: ['post.view', 'post.create', 'post.update']
+    permissions: ['post.view', 'post.create', 'post.update'],
   };
 
   return (
@@ -69,25 +85,23 @@ function Root() {
 }
 ```
 
-### 2. Guard UI elements with `<Can>`
+### 2. Declarative UI with `<Can />`
 
 ```tsx
-import { Can } from 'react-permission';
+import { Can } from 'react-permission-control';
 
-function Dashboard() {
+export function Dashboard() {
   return (
     <div>
-      <h1>Post Management</h1>
-
-      {/* Render only if granted permission */}
+      {/* 1. Basic permission guard */}
       <Can permission="post.create">
-        <button>Create New Post</button>
+        <button>+ New Post</button>
       </Can>
 
-      {/* Render with fallback if unauthorized */}
+      {/* 2. With fallback UI */}
       <Can
         permission="post.delete"
-        fallback={<p className="text-gray-400">Deletion disabled for your account</p>}
+        fallback={<p className="text-muted">Deletion requires admin approval.</p>}
       >
         <button className="btn-danger">Delete Post</button>
       </Can>
@@ -96,25 +110,25 @@ function Dashboard() {
 }
 ```
 
-### 3. Use programmatic checks with `usePermission`
+### 3. Programmatic Checks with `usePermission()`
 
 ```tsx
-import { usePermission } from 'react-permission';
+import { usePermission } from 'react-permission-control';
 
-function EditPostButton({ postId }: { postId: string }) {
+export function EditButton({ postId }: { postId: string }) {
   const { can, cannot, hasRole } = usePermission();
 
   const handleEdit = () => {
     if (cannot('post.update')) {
-      alert('You do not have permission to edit posts.');
+      alert('Access Denied: You do not have permission to edit posts.');
       return;
     }
-    // execute edit logic...
+    // Perform update action...
   };
 
   return (
     <button onClick={handleEdit}>
-      Edit Post {hasRole('admin') ? '(Admin Mode)' : ''}
+      Edit {hasRole('admin') ? '(Admin)' : ''}
     </button>
   );
 }
@@ -122,109 +136,105 @@ function EditPostButton({ postId }: { postId: string }) {
 
 ---
 
-## 📖 In-Depth Usage Guide
+## 📖 Usage Recipes
 
-### Declarative Checks with `<Can>`
+### 1. Multi-Permission Evaluation (`mode="any"` vs `mode="all"`)
 
-#### Multiple Permissions (`mode="any"` vs `mode="all"`)
-
-By default, passing multiple permissions requires **all** of them to be granted (`mode="all"`). Use `mode="any"` to require at least one:
+By default, passing multiple permissions requires **all** of them to be granted (`mode="all"`). Use `mode="any"` if having at least one permission is sufficient:
 
 ```tsx
-// All permissions required (default)
-<Can permissions={['user.view', 'user.edit']} mode="all">
-  <EditUserProfile />
+// Requires BOTH permissions (default)
+<Can permissions={['user.view', 'user.update']} mode="all">
+  <EditUserForm />
 </Can>
 
-// At least one permission required
-<Can permissions={['user.edit', 'user.delete']} mode="any">
-  <UserActionMenu />
+// Requires AT LEAST ONE permission
+<Can permissions={['post.edit', 'post.delete']} mode="any">
+  <PostActionToolbar />
 </Can>
 ```
 
-#### Role-Based Checks
+### 2. Role-Based Access Control (RBAC)
 
 ```tsx
-// Single role
+// Single role check
 <Can role="admin">
-  <AdminDashboard />
+  <AdminConsole />
 </Can>
 
-// Multiple roles (e.g. Any of admin or manager)
-<Can roles={['admin', 'manager']} mode="any">
-  <TeamReports />
+// Multi-role check (Any role matches)
+<Can roles={['admin', 'team_lead']} mode="any">
+  <TeamAnalytics />
 </Can>
 ```
 
-#### Combined Role & Permission Checks
+### 3. Combined Role AND Permission Rules
 
-When passing both `roles` and `permissions`, both conditions are evaluated with logical `AND`:
+When combining `role`/`roles` with `permission`/`permissions`, `<Can />` evaluates with a strict logical `AND`:
 
 ```tsx
 <Can role="admin" permissions={['billing.view', 'billing.export']}>
-  <BillingAuditPanel />
+  <BillingAuditReport />
 </Can>
 ```
 
-#### Custom Predicates (`check`)
+### 4. Custom Predicate Logic (ABAC / Attribute-Based)
 
-For complex authorization rules that depend on both roles and permissions or calculated context:
+For dynamic rules depending on runtime variables or state:
 
 ```tsx
 <Can
   check={({ hasRole, hasPermission }) =>
-    hasRole('admin') || (hasRole('editor') && hasPermission('post.publish'))
+    hasRole('superadmin') ||
+    (hasRole('manager') && hasPermission('payroll.approve'))
   }
 >
-  <PublishArticleButton />
+  <ApprovePayrollButton />
 </Can>
 ```
 
-#### Render Prop Pattern
+### 5. Render Prop Pattern
 
-If you need access to the authorization state without hiding the element:
+Pass `{ allowed, checker }` to children for fine-grained UI customization (e.g. disabling a button instead of hiding it):
 
 ```tsx
-<Can permission="user.delete">
+<Can permission="billing.export">
   {({ allowed, checker }) => (
     <button
       disabled={!allowed}
-      title={allowed ? 'Delete User' : 'You lack deletion permission'}
+      title={allowed ? 'Export billing report' : 'Permission missing'}
     >
-      Delete User {checker.hasRole('admin') ? '(Admin)' : ''}
+      Export CSV {checker.hasRole('admin') ? '(Priority Queue)' : ''}
     </button>
   )}
 </Can>
 ```
 
----
+### 6. Standalone Engine (Outside React)
 
-### Programmatic Authorization Outside React
-
-`react-permission` is built on a decoupled core engine. You can instantiate and use permission checkers directly in server actions, CLI utilities, API clients, or router guards:
+Use `createPermissionChecker` in Node.js, CLI utilities, API clients, or router navigation guards:
 
 ```ts
-import { createPermissionChecker } from 'react-permission';
+import { createPermissionChecker } from 'react-permission-control';
 
 const checker = createPermissionChecker({
   permissions: ['user.view', 'user.create'],
-  roles: ['manager']
+  roles: ['manager'],
 });
 
 checker.can('user.create'); // true
 checker.cannot('user.delete'); // true
+checker.canAny(['user.create', 'billing.manage']); // true
+checker.canAll(['user.create', 'user.view']); // true
 checker.hasRole('manager'); // true
 checker.hasAnyRole(['admin', 'manager']); // true
-checker.hasAllRoles(['admin', 'manager']); // false
-checker.hasAnyPermission(['user.create', 'billing.view']); // true
-checker.hasAllPermissions(['user.create', 'user.view']); // true
 ```
 
 ---
 
-### 💡 TypeScript Autocomplete
+## 💡 TypeScript Guide
 
-Define application-specific permission and role types for full IDE autocomplete:
+`react-permission-control` is built with a **TypeScript-first** philosophy. You can define your union types once and get full IDE autocomplete across all components and hooks.
 
 ```tsx
 // types/auth.ts
@@ -233,32 +243,31 @@ export type AppPermission =
   | 'user.create'
   | 'user.update'
   | 'user.delete'
-  | 'billing.view'
-  | 'billing.manage';
+  | 'settings.manage';
 
-export type AppRole = 'admin' | 'manager' | 'viewer';
+export type AppRole = 'admin' | 'editor' | 'viewer';
 ```
 
-Pass the types as generics to `<PermissionProvider>` and `usePermission()`:
+Pass generics to `<PermissionProvider />` and `usePermission()`:
 
 ```tsx
-import { PermissionProvider, usePermission, Can } from 'react-permission';
+import { PermissionProvider, usePermission, Can } from 'react-permission-control';
 import type { AppPermission, AppRole } from './types/auth';
 
-function Root() {
+function App() {
   return (
     <PermissionProvider<AppPermission, AppRole>
       permissions={['user.view', 'user.create']}
-      roles={['admin']}
+      roles={['editor']}
     >
-      <App />
+      <Main />
     </PermissionProvider>
   );
 }
 
-function Profile() {
-  // Full IDE autocomplete for can('...') and hasRole('...')!
-  const { can, hasRole } = usePermission<AppPermission, AppRole>();
+function Main() {
+  // IDE autocompletes 'user.create', 'user.update', etc.
+  const { can, cannot, hasRole } = usePermission<AppPermission, AppRole>();
 
   return (
     <Can<AppPermission, AppRole> permission="user.create">
@@ -270,42 +279,36 @@ function Profile() {
 
 ---
 
-## 🔒 Security Model & Best Practices
+## 🔒 Security Best Practice
 
 > [!IMPORTANT]
-> **Client-Side Authorization is for User Experience (UX), NOT Security.**
+> **Client-side authorization is for User Experience (UX), NOT application security.**
 >
-> Hiding a button or page on the frontend prevents confusion and improves UX. However, tech-savvy users can modify client code or inspect network requests.
+> Hiding buttons or routes improves UX and prevents unauthorized clicks, but client code can be modified by the user.
 >
 > **You MUST always enforce authorization checks on your backend server / API endpoints independently.**
 >
 > ```
-> Frontend (react-permission):
-> User has "user.delete"? ──▶ Show / Hide Delete Button
+> Frontend (react-permission-control):
+> Has "user.delete"? ──▶ Show / Hide Delete Button
 > 
 > Backend (API / Database):
-> Authenticated Request ──▶ Verify session permissions ──▶ Allow / Reject 403
+> Session validation ──▶ Verify database role/permission ──▶ Allow / Return HTTP 403
 > ```
 
 ---
 
 ## 📚 API Reference
 
-### `<PermissionProvider>`
-
-Top-level context provider.
+### `<PermissionProvider />`
 
 | Prop | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `permissions` | `readonly (string)[] \| null` | `[]` | List of permissions granted to the user. Normalizes `null`, `undefined`, and duplicates defensively. |
+| `permissions` | `readonly (string)[] \| null` | `[]` | List of permissions granted. Normalizes null/undefined/duplicates defensively. |
 | `roles` | `readonly (string)[] \| null` | `[]` | List of roles assigned to the user. |
-| `children` | `ReactNode` | *(Required)* | Child component tree. |
+| `children` | `ReactNode` | *(Required)* | Child component subtree. |
 
----
-
-### `<Can>`
-
-Declarative conditional rendering component.
+### `<Can />`
 
 | Prop | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
@@ -314,15 +317,11 @@ Declarative conditional rendering component.
 | `role` | `string` | `undefined` | Single required role. |
 | `roles` | `readonly string[]` | `undefined` | Array of roles to check. |
 | `mode` | `'any' \| 'all'` | `'all'` | Mode used when evaluating multiple permissions or roles. |
-| `check` | `(context) => boolean` | `undefined` | Custom predicate function. |
-| `fallback` | `ReactNode` | `null` | UI to render when unauthorized. |
-| `children` | `ReactNode \| CanRenderProp` | `null` | Elements to render when authorized, or a render prop function `({ allowed, checker }) => ReactNode`. |
-
----
+| `check` | `(context) => boolean` | `undefined` | Custom authorization predicate function. |
+| `fallback` | `ReactNode` | `null` | Element to render when authorization fails. |
+| `children` | `ReactNode \| CanRenderProp` | `null` | Rendered when authorized, or render prop function `({ allowed, checker }) => ReactNode`. |
 
 ### `usePermission()` / `usePermissionContext()`
-
-Hook returning the active `PermissionChecker` instance.
 
 ```ts
 const {
@@ -330,58 +329,26 @@ const {
   roles,              // readonly string[]
   can,                // (permission: string) => boolean
   cannot,             // (permission: string) => boolean
+  canAny,             // (permissions: string[]) => boolean
+  canAll,             // (permissions: string[]) => boolean
   hasRole,            // (role: string) => boolean
   hasAnyRole,         // (roles: string[]) => boolean
   hasAllRoles,        // (roles: string[]) => boolean
   hasAnyPermission,   // (permissions: string[]) => boolean
   hasAllPermissions,  // (permissions: string[]) => boolean
-  check               // (predicateFn: (context) => boolean) => boolean
+  check               // (predicateFn) => boolean
 } = usePermission();
 ```
 
-*Note: Throws a clear runtime error if invoked outside `<PermissionProvider>`.*
-
 ---
 
-### `createPermissionChecker(options)`
+## 🤝 Contributing
 
-Standalone factory function to construct a `PermissionChecker` outside React.
-
-```ts
-const checker = createPermissionChecker({
-  permissions: ['user.view'],
-  roles: ['admin']
-});
-```
-
----
-
-## ❓ Frequently Asked Questions (FAQ)
-
-### Does `react-permission` support Server-Side Rendering (SSR)?
-**Yes.** `react-permission` has zero references to browser globals (`window`, `document`, `localStorage`) during module load and render. It runs deterministically in Next.js (App & Pages Router), Remix, and Vite SSR.
-
-### Does `react-permission` integrate with React Router?
-**Yes.** Because `react-permission` is router-agnostic, you can guard routes in React Router, TanStack Router, or Next.js middleware with `usePermission()` or `createPermissionChecker()`:
-
-```tsx
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { cannot } = usePermission();
-  if (cannot('admin.access')) {
-    return <Navigate to="/unauthorized" replace />;
-  }
-  return children;
-}
-```
-
-### Can permissions update dynamically at runtime?
-**Yes.** When `permissions` or `roles` state updates in the parent component, `<PermissionProvider>` recomputes its internal state efficiently without stale closures.
-
-### How are nested providers handled?
-Nested `<PermissionProvider>` instances override their parent context predictably, making it straightforward to scope permissions to specific sections or widgets.
+Contributions, issues, and feature requests are welcome!
+Feel free to check the [issues page](https://github.com/lvlinh45/react-permission/issues).
 
 ---
 
 ## 📄 License
 
-MIT © 2026 react-permission contributors.
+MIT © [lvlinh45](https://github.com/lvlinh45)

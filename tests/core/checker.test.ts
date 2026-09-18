@@ -72,26 +72,32 @@ describe('createPermissionChecker', () => {
       permissions: ['report.view', 'report.export'],
     });
 
-    it('evaluates hasAnyPermission', () => {
+    it('evaluates hasAnyPermission and canAny alias', () => {
       expect(checker.hasAnyPermission(['report.view', 'report.delete'])).toBe(
         true,
       );
+      expect(checker.canAny(['report.view', 'report.delete'])).toBe(true);
       expect(
         checker.hasAnyPermission(['report.delete', 'billing.manage']),
       ).toBe(false);
+      expect(checker.canAny(['report.delete', 'billing.manage'])).toBe(false);
       expect(checker.hasAnyPermission([])).toBe(false);
+      expect(checker.canAny([])).toBe(false);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect(checker.hasAnyPermission(undefined as any)).toBe(false);
     });
 
-    it('evaluates hasAllPermissions', () => {
+    it('evaluates hasAllPermissions and canAll alias', () => {
       expect(checker.hasAllPermissions(['report.view', 'report.export'])).toBe(
         true,
       );
+      expect(checker.canAll(['report.view', 'report.export'])).toBe(true);
       expect(checker.hasAllPermissions(['report.view', 'report.delete'])).toBe(
         false,
       );
+      expect(checker.canAll(['report.view', 'report.delete'])).toBe(false);
       expect(checker.hasAllPermissions([])).toBe(false);
+      expect(checker.canAll([])).toBe(false);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect(checker.hasAllPermissions(null as any)).toBe(false);
     });

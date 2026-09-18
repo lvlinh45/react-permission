@@ -1,7 +1,7 @@
 {
-  "name": "react-permission",
-  "version": "1.0.0",
-  "description": "A lightweight, strongly-typed, framework-agnostic React authorization and permission library.",
+  "name": "react-permission-control",
+  "version": "1.0.1",
+  "description": "🛡️ The lightweight, type-safe authorization library for React. Declarative <Can /> components, hooks, and RBAC/ABAC access control with zero dependencies.",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -27,7 +27,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src tests",
     "format": "prettier --write \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" \"README.md\"",
-    "clean": "rimraf dist coverage *.tgz",
+    "clean": "rimraf dist coverage",
     "prepublishOnly": "npm run clean && npm run typecheck && npm run lint && npm test && npm run build"
   },
   "keywords": [
@@ -48,12 +48,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/react-permission/react-permission.git"
+    "url": "git+https://github.com/lvlinh45/react-permission.git"
   },
   "bugs": {
-    "url": "https://github.com/react-permission/react-permission/issues"
+    "url": "https://github.com/lvlinh45/react-permission/issues"
   },
-  "homepage": "https://github.com/react-permission/react-permission#readme",
+  "homepage": "https://github.com/lvlinh45/react-permission#readme",
   "peerDependencies": {
     "react": ">=18.0.0"
   },

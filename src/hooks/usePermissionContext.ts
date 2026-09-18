@@ -18,7 +18,7 @@ export function usePermissionContext<
 
   if (!context) {
     throw new Error(
-      '[react-permission] usePermission must be used within a <PermissionProvider>. ' +
+      '[react-permission-control] usePermission must be used within a <PermissionProvider>. ' +
         'Please ensure your component tree is wrapped in <PermissionProvider>.',
     );
   }
