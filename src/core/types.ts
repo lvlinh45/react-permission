@@ -50,6 +50,14 @@ export type CustomCheckFn<
 > = (context: PermissionCheckContext<TPermission, TRole>) => boolean;
 
 /**
+ * Role-to-permissions mapping matrix.
+ */
+export type RolePermissionsMap<
+  TRole extends string = string,
+  TPermission extends string = string,
+> = Partial<Record<TRole | string, readonly (TPermission | string)[]>>;
+
+/**
  * Options for initializing a permission checker instance.
  */
 export interface PermissionCheckerOptions<
@@ -65,6 +73,18 @@ export interface PermissionCheckerOptions<
    * Roles assigned to the user or context.
    */
   roles?: readonly (TRole | string)[] | null;
+
+  /**
+   * Enable wildcard / glob pattern matching for permissions (e.g. 'posts.*', '*').
+   * Defaults to `true`.
+   */
+  wildcard?: boolean;
+
+  /**
+   * Role-to-Permissions mapping matrix.
+   * Permissions mapped to the user's active roles will automatically be granted.
+   */
+  rolePermissions?: RolePermissionsMap<TRole, TPermission>;
 }
 
 /**
@@ -84,6 +104,11 @@ export interface PermissionChecker<
    * Active list of normalized roles.
    */
   readonly roles: readonly TRole[];
+
+  /**
+   * Whether wildcard matching is active.
+   */
+  readonly wildcard: boolean;
 
   /**
    * Checks if the given permission is granted.
@@ -152,7 +177,7 @@ export interface PermissionChecker<
 }
 
 /**
- * Render prop signature for the <Can> component.
+ * Render prop signature for the <Can> and <Cannot> components.
  */
 export type CanRenderProp<
   TPermission extends string = string,
@@ -163,7 +188,7 @@ export type CanRenderProp<
 }) => ReactNode;
 
 /**
- * Props for the declarative <Can> authorization component.
+ * Props for the declarative <Can> and <Cannot> authorization components.
  */
 export interface CanProps<
   TPermission extends string = string,
@@ -196,6 +221,12 @@ export interface CanProps<
   mode?: PermissionMode;
 
   /**
+   * Invert authorization decision (renders when condition is NOT satisfied).
+   * Defaults to false.
+   */
+  not?: boolean;
+
+  /**
    * Custom authorization predicate function.
    */
   check?: CustomCheckFn<TPermission, TRole>;
@@ -210,6 +241,19 @@ export interface CanProps<
    */
   children?: ReactNode | CanRenderProp<TPermission, TRole>;
 }
+
+/**
+ * Options for Higher-Order Components (HOC).
+ */
+export interface WithPermissionOptions<
+  TPermission extends string = string,
+  TRole extends string = string,
+> extends Omit<CanProps<TPermission, TRole>, 'children' | 'permission' | 'permissions'> {}
+
+export interface WithRoleOptions<
+  TPermission extends string = string,
+  TRole extends string = string,
+> extends Omit<CanProps<TPermission, TRole>, 'children' | 'role' | 'roles'> {}
 
 /**
  * Props for the <PermissionProvider> component.
@@ -227,6 +271,17 @@ export interface PermissionProviderProps<
    * Roles assigned to the current user or context.
    */
   roles?: readonly (TRole | string)[] | null;
+
+  /**
+   * Enable wildcard pattern matching for permissions (e.g. 'posts.*', '*').
+   * Defaults to `true`.
+   */
+  wildcard?: boolean;
+
+  /**
+   * Role-to-Permissions mapping matrix.
+   */
+  rolePermissions?: RolePermissionsMap<TRole, TPermission>;
 
   /**
    * React children to render within the permission context.

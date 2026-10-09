@@ -8,9 +8,11 @@ import { usePermissionContext } from '../hooks/usePermissionContext';
  * Supports:
  * - Single permission (`permission="user.create"`)
  * - Multiple permissions (`permissions={["user.edit", "user.delete"]}`)
+ * - Wildcard patterns (`permission="users.*"`)
  * - Single role (`role="admin"`)
  * - Multiple roles (`roles={["admin", "manager"]}`)
  * - Logical modes (`mode="any"` or `mode="all"`, defaults to `'all'`)
+ * - Inversion (`not={true}`)
  * - Custom predicate (`check={({ hasRole }) => hasRole("admin")}`)
  * - Fallback UI (`fallback={<Unauthorized />}`)
  * - Render props pattern (`children={({ allowed }) => <Button disabled={!allowed} />}`)
@@ -31,6 +33,7 @@ export function Can<
   role,
   roles,
   mode = 'all',
+  not = false,
   check,
   fallback = null,
   children,
@@ -90,9 +93,11 @@ export function Can<
   const hasAnyConditionSpecified =
     hasPermissionCondition || hasRoleCondition || hasCheckCondition;
 
-  const allowed = hasAnyConditionSpecified
+  const conditionPassed = hasAnyConditionSpecified
     ? permissionConditionMet && roleConditionMet && checkConditionMet
     : true;
+
+  const allowed = not ? !conditionPassed : conditionPassed;
 
   // Render prop support
   if (typeof children === 'function') {

@@ -1,6 +1,6 @@
 {
   "name": "react-permission-control",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "🛡️ The lightweight, type-safe authorization library for React. Declarative <Can /> components, hooks, and RBAC/ABAC access control with zero dependencies.",
   "type": "module",
   "main": "./dist/index.cjs",

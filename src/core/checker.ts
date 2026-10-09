@@ -1,4 +1,5 @@
 import { normalizeIdentifiers } from './normalize';
+import { matchesWildcard } from './wildcard';
 import type {
   CustomCheckFn,
   PermissionCheckContext,
@@ -17,11 +18,12 @@ import type {
  * - Event handlers & services
  * - Unit tests
  *
- * All lookups operate in O(1) time complexity via internal Set data structures.
+ * All exact lookups operate in O(1) time complexity via internal Set data structures.
+ * Wildcard expressions (e.g. `posts.*`, `*`) are supported and evaluated efficiently.
  *
  * @template TPermission Permission string literal or string
  * @template TRole Role string literal or string
- * @param options Initial permissions and roles configuration
+ * @param options Initial permissions, roles, and configuration
  * @returns An immutable PermissionChecker instance
  */
 export function createPermissionChecker<
@@ -30,16 +32,65 @@ export function createPermissionChecker<
 >(
   options?: PermissionCheckerOptions<TPermission, TRole>,
 ): PermissionChecker<TPermission, TRole> {
-  const [permissionsList, permissionSet] = normalizeIdentifiers<TPermission>(
-    options?.permissions,
-  );
+  const isWildcardEnabled = options?.wildcard !== false;
+
+  // Normalize initial roles
   const [rolesList, roleSet] = normalizeIdentifiers<TRole>(options?.roles);
+
+  // Collect direct permissions + inherited permissions from rolePermissions map
+  const rawPermissions: (TPermission | string)[] = [];
+  if (options?.permissions && Array.isArray(options.permissions)) {
+    rawPermissions.push(...options.permissions);
+  }
+
+  if (options?.rolePermissions && typeof options.rolePermissions === 'object') {
+    for (let i = 0; i < rolesList.length; i++) {
+      const role = rolesList[i];
+      const mapped = options.rolePermissions[role];
+      if (mapped && Array.isArray(mapped)) {
+        rawPermissions.push(...mapped);
+      }
+    }
+  }
+
+  // Normalize final list of permissions
+  const [permissionsList, permissionSet] =
+    normalizeIdentifiers<TPermission>(rawPermissions);
+
+  // Pre-filter wildcard patterns to optimize evaluation
+  const wildcardPatterns: string[] = [];
+  if (isWildcardEnabled) {
+    for (let i = 0; i < permissionsList.length; i++) {
+      const p = permissionsList[i];
+      if (typeof p === 'string' && p.includes('*')) {
+        wildcardPatterns.push(p);
+      }
+    }
+  }
+
+  const hasSuperWildcard = wildcardPatterns.includes('*');
 
   const can = (permission: StringWithAutocomplete<TPermission>): boolean => {
     if (typeof permission !== 'string') return false;
     const trimmed = permission.trim();
     if (trimmed.length === 0) return false;
-    return permissionSet.has(trimmed as TPermission);
+
+    // Fast O(1) exact match check
+    if (permissionSet.has(trimmed as TPermission)) {
+      return true;
+    }
+
+    // Wildcard matching check
+    if (isWildcardEnabled && wildcardPatterns.length > 0) {
+      if (hasSuperWildcard) return true;
+      for (let i = 0; i < wildcardPatterns.length; i++) {
+        if (matchesWildcard(wildcardPatterns[i], trimmed)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   };
 
   const cannot = (permission: StringWithAutocomplete<TPermission>): boolean => {
@@ -115,6 +166,7 @@ export function createPermissionChecker<
   return Object.freeze({
     permissions: permissionsList,
     roles: rolesList,
+    wildcard: isWildcardEnabled,
     can,
     cannot,
     canAny: hasAnyPermission,
