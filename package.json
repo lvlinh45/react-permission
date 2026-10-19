@@ -28,7 +28,12 @@
     "lint": "eslint src tests",
     "format": "prettier --write \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\" \"README.md\"",
     "clean": "rimraf dist coverage",
-    "prepublishOnly": "npm run clean && npm run typecheck && npm run lint && npm test && npm run build"
+    "prepublishOnly": "npm run clean && npm run typecheck && npm run lint && npm test && npm run build",
+    "preversion": "npm run clean && npm run typecheck && npm run lint && npm test && npm run build",
+    "postversion": "git push origin --follow-tags",
+    "release:patch": "npm version patch && npm publish",
+    "release:minor": "npm version minor && npm publish",
+    "release:major": "npm version major && npm publish"
   },
   "keywords": [
     "react",

@@ -14,7 +14,7 @@
   Control UI rendering, component visibility, and application logic declaratively with RBAC/ABAC rules, transitive role hierarchies, fine-grained resource policies, switch-case guards, wildcards, and async loading state.
 </p>
 
-[Installation](#-installation) • [Quick Start](#-quick-start) • [What's New in v1.1.0](#-whats-new-in-v110) • [Usage Recipes](#-usage-recipes) • [TypeScript Guide](#-typescript-guide) • [API Reference](#-api-reference)
+[Installation](#-installation) • [Quick Start](#-quick-start) • [What's New in v1.1.0](#-whats-new-in-v110) • [Usage Recipes](#-usage-recipes) • [TypeScript Guide](#-typescript-guide) • [API Reference](#-api-reference) • [Release Workflow](#-automated-git-tagging--release-workflow)
 
 </div>
 
@@ -466,6 +466,44 @@ const {
   hasAllPermissions,  // (permissions[]) => boolean
   check,              // (predicateFn) => boolean
 } = usePermission();
+```
+
+---
+
+## 🏷️ Automated Git Tagging & Release Workflow
+
+Dự án đã cấu hình sẵn cơ chế tự động hóa quy trình kiểm tra chất lượng code, đánh Git Tag và đẩy lên GitHub bằng lệnh chuẩn của `npm`:
+
+### 1. Đánh Git Tag tự động & Push lên GitHub
+Khi bạn muốn tạo một version mới và tự động đánh tag đẩy lên GitHub, chỉ cần chạy **1 lệnh duy nhất**:
+
+```bash
+# Tăng patch version (ví dụ: 1.1.0 -> 1.1.1):
+npm version patch
+
+# Hoặc tăng minor version (ví dụ: 1.1.0 -> 1.2.0):
+npm version minor
+
+# Hoặc tăng major version (ví dụ: 1.1.0 -> 2.0.0):
+npm version major
+```
+
+Lệnh trên sẽ tự động:
+1. Chạy quy trình kiểm tra toàn diện (`clean`, `typecheck`, `lint`, `test`, `build`).
+2. Tăng số version trong `package.json` và `package-lock.json`.
+3. Tự động tạo một Git commit với message là tên version.
+4. Tự động tạo **Git Tag** (ví dụ `v1.1.1`).
+5. Tự động `git push` cả commit và tag lên GitHub (`git push origin --follow-tags`)!
+
+---
+
+### 2. Tự động đánh Tag + Publish lên NPM (Trọn gói 1 bước)
+Nếu bạn muốn vừa tự động đánh tag đẩy GitHub, vừa publish luôn gói lên NPM trong 1 bước duy nhất:
+
+```bash
+npm run release:patch   # Tự bump patch, tạo tag, push GitHub và publish npm
+npm run release:minor   # Tự bump minor, tạo tag, push GitHub và publish npm
+npm run release:major   # Tự bump major, tạo tag, push GitHub và publish npm
 ```
 
 ---
