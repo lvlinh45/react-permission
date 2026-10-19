@@ -472,38 +472,40 @@ const {
 
 ## 🏷️ Automated Git Tagging & Release Workflow
 
-Dự án đã cấu hình sẵn cơ chế tự động hóa quy trình kiểm tra chất lượng code, đánh Git Tag và đẩy lên GitHub bằng lệnh chuẩn của `npm`:
+Dự án hỗ trợ **tự động hóa 100% bằng GitHub Actions CI/CD** lẫn câu lệnh local nhanh:
 
-### 1. Đánh Git Tag tự động & Push lên GitHub
-Khi bạn muốn tạo một version mới và tự động đánh tag đẩy lên GitHub, chỉ cần chạy **1 lệnh duy nhất**:
+### 1. Tự động hoàn toàn bằng GitHub Actions CI/CD (Khuyên dùng 🌟)
 
-```bash
-# Tăng patch version (ví dụ: 1.1.0 -> 1.1.1):
-npm version patch
+Mỗi khi bạn tăng version trong `package.json` và push/merge code vào nhánh `main`:
+1. GitHub Actions sẽ tự động chạy toàn bộ quy trình kiểm thử (`typecheck`, `lint`, `test`, `build`).
+2. Tự động kiểm tra xem tag `vX.Y.Z` đã có trên GitHub chưa. Nếu chưa có:
+   - **Tự động tạo Git Tag** (ví dụ `v1.1.2`).
+   - **Tự động tạo GitHub Release** kèm Changelog ghi chú phát hành tự động.
+   - **Tự động publish lên NPM registry**.
 
-# Hoặc tăng minor version (ví dụ: 1.1.0 -> 1.2.0):
-npm version minor
+> 💡 **Bấm nút Release trực tiếp từ giao diện GitHub Web:**
+> Bạn cũng có thể vào tab **Actions** trên GitHub Repo ➔ chọn **Release & Publish** ➔ bấm **Run workflow** và chọn kiểu bump (`patch`, `minor`, `major`). GitHub Actions sẽ tự động bump version trong `package.json`, commit, đánh tag và publish mà không cần mở terminal!
 
-# Hoặc tăng major version (ví dụ: 1.1.0 -> 2.0.0):
-npm version major
-```
-
-Lệnh trên sẽ tự động:
-1. Chạy quy trình kiểm tra toàn diện (`clean`, `typecheck`, `lint`, `test`, `build`).
-2. Tăng số version trong `package.json` và `package-lock.json`.
-3. Tự động tạo một Git commit với message là tên version.
-4. Tự động tạo **Git Tag** (ví dụ `v1.1.1`).
-5. Tự động `git push` cả commit và tag lên GitHub (`git push origin --follow-tags`)!
+#### 🔑 Cấu hình GitHub Secret để kích hoạt Auto Publish NPM:
+1. Vào repository GitHub của bạn: `Settings > Secrets and variables > Actions`.
+2. Bấm **New repository secret**.
+3. Đặt Name: `NPM_TOKEN`, Value: Điền mã NPM Automation Token của bạn.
 
 ---
 
-### 2. Tự động đánh Tag + Publish lên NPM (Trọn gói 1 bước)
-Nếu bạn muốn vừa tự động đánh tag đẩy GitHub, vừa publish luôn gói lên NPM trong 1 bước duy nhất:
+### 2. Tự động qua lệnh local (Tùy chọn)
+Nếu muốn thực thi nhanh từ máy local:
 
 ```bash
-npm run release:patch   # Tự bump patch, tạo tag, push GitHub và publish npm
-npm run release:minor   # Tự bump minor, tạo tag, push GitHub và publish npm
-npm run release:major   # Tự bump major, tạo tag, push GitHub và publish npm
+# Tự bump version, tạo git commit, tạo git tag và push GitHub:
+npm version patch    # ví dụ: 1.1.0 -> 1.1.1
+npm version minor    # ví dụ: 1.1.0 -> 1.2.0
+npm version major    # ví dụ: 1.1.0 -> 2.0.0
+
+# Hoặc vừa bump version, đánh tag GitHub vừa publish NPM trong 1 bước:
+npm run release:patch
+npm run release:minor
+npm run release:major
 ```
 
 ---

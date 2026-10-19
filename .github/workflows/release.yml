@@ -1,0 +1,145 @@
+name: Release & Publish
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**/*.md'
+      - '.gitignore'
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version bump type (if you want to bump version from UI)'
+        required: true
+        type: choice
+        default: 'none'
+        options:
+          - 'none'
+          - 'patch'
+          - 'minor'
+          - 'major'
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  test-and-build:
+    name: Test & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build bundle
+        run: npm run build
+
+  release:
+    name: Auto Tag, Release & Publish
+    needs: test-and-build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org/'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version (if triggered via manual dispatch)
+        if: github.event.inputs.bump != 'none' && github.event.inputs.bump != ''
+        run: |
+          npm version ${{ github.event.inputs.bump }} --no-git-tag-version
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          git add package.json package-lock.json
+          git commit -m "chore(release): v${NEW_VERSION}"
+          git push origin main
+
+      - name: Check package version and tag status
+        id: check_version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v${VERSION}"
+          echo "Current package.json version: ${VERSION}"
+          echo "Target tag: ${TAG}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+
+          if git rev-parse "${TAG}" >/dev/null 2>&1 || git ls-remote --tags origin | grep -q "refs/tags/${TAG}$"; then
+            echo "Tag ${TAG} already exists on remote. Skipping tag creation & release."
+            echo "tag_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "Tag ${TAG} does not exist yet. Will create tag and release."
+            echo "tag_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create & Push Git Tag
+        if: steps.check_version.outputs.tag_exists == 'false'
+        run: |
+          TAG="${{ steps.check_version.outputs.tag }}"
+          git tag -a "${TAG}" -m "Release ${TAG}"
+          git push origin "${TAG}"
+
+      - name: Build dist bundles
+        if: steps.check_version.outputs.tag_exists == 'false'
+        run: npm run build
+
+      - name: Create GitHub Release
+        if: steps.check_version.outputs.tag_exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.check_version.outputs.tag }}
+          name: Release ${{ steps.check_version.outputs.tag }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to NPM
+        if: steps.check_version.outputs.tag_exists == 'false'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -n "${NODE_AUTH_TOKEN}" ]; then
+            echo "Publishing to NPM registry..."
+            npm publish --access public
+          else
+            echo "NPM_TOKEN secret is not configured in GitHub Secrets. Skipping npm publish."
+          fi
