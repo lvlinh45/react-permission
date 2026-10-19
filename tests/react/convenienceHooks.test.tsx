@@ -45,4 +45,31 @@ describe('Convenience Hooks (useCan, useCannot, useHasRole)', () => {
     expect(screen.getByTestId('isAdmin')).toHaveTextContent('false');
     expect(screen.getByTestId('isEditorOrAdmin')).toHaveTextContent('true');
   });
+
+  it('evaluates ABAC resources with useCan and useCannot', () => {
+    function ResourceConsumer({ post }: { post: { authorId: string } }) {
+      const canEditPost = useCan('posts.edit', post);
+      const cannotEditPost = useCannot('posts.edit', post);
+
+      return (
+        <div>
+          <span data-testid="canEditPost">{String(canEditPost)}</span>
+          <span data-testid="cannotEditPost">{String(cannotEditPost)}</span>
+        </div>
+      );
+    }
+
+    render(
+      <PermissionProvider
+        policies={{
+          'posts.edit': (res: unknown) => (res as { authorId: string }).authorId === 'user-1',
+        }}
+      >
+        <ResourceConsumer post={{ authorId: 'user-1' }} />
+      </PermissionProvider>,
+    );
+
+    expect(screen.getByTestId('canEditPost')).toHaveTextContent('true');
+    expect(screen.getByTestId('cannotEditPost')).toHaveTextContent('false');
+  });
 });

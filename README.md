@@ -11,10 +11,10 @@
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](https://github.com/lvlinh45/react-permission/pulls)
 
 <p align="center">
-  Control UI rendering, component visibility, and application logic declaratively with RBAC/ABAC rules, wildcard permissions, permission guards, HOCs, and hooks.
+  Control UI rendering, component visibility, and application logic declaratively with RBAC/ABAC rules, transitive role hierarchies, fine-grained resource policies, switch-case guards, wildcards, and async loading state.
 </p>
 
-[Installation](#-installation) • [Quick Start](#-quick-start) • [What's New in v1.0.2](#-whats-new-in-v102) • [Usage Recipes](#-usage-recipes) • [TypeScript Guide](#-typescript-guide) • [API Reference](#-api-reference)
+[Installation](#-installation) • [Quick Start](#-quick-start) • [What's New in v1.1.0](#-whats-new-in-v110) • [Usage Recipes](#-usage-recipes) • [TypeScript Guide](#-typescript-guide) • [API Reference](#-api-reference)
 
 </div>
 
@@ -28,10 +28,15 @@ Most access-control solutions in React are either **too heavyweight and complex*
 
 | Feature | `react-permission-control` | CASL (`@casl/react`) | Custom Context Boilerplate |
 | :--- | :---: | :---: | :---: |
-| **Bundle Size** | **< 1.6 KB** (gzipped) | ~8 KB | Varies |
+| **Bundle Size** | **< 2.0 KB** (gzipped) | ~8 KB | Varies |
 | **Dependencies** | **0** (Only React peer) | Multiple | 0 |
 | **TypeScript Autocomplete** | **Native Generics** | Requires complex types | Manual |
 | **Lookup Speed** | **$O(1)$ Hash Set + Fast Wildcard** | Rule iteration | $O(N)$ Array scans |
+| **Role Hierarchy** | **Built-in Transitive RBAC** | Manual | Manual |
+| **ABAC Resource Policies** | **Built-in (`policies` + `resource`)** | Complex rule DSL | Manual |
+| **Switch-Case Authorization** | **`<Can.Switch>` & `<PermissionSwitch>`** | None | Manual |
+| **Async Loading Handling** | **First-class (`isLoading`, `loadingFallback`)** | Manual | Manual |
+| **Diagnostics & Explanations**| **`checker.explain()`** | Complex | Manual |
 | **Wildcards & Globbing** | **Built-in (`*`, `posts.*`)** | Custom matcher | Manual |
 | **Role-Permission Matrix** | **Built-in (`rolePermissions`)** | Custom definitions | Manual |
 | **HOCs & Direct Hooks** | **`withPermission`, `useCan`, etc.** | Limited | Manual |
@@ -60,13 +65,14 @@ bun add react-permission-control
 
 ---
 
-## ✨ What's New in v1.0.2
+## ✨ What's New in v1.1.0
 
-- 🌟 **Wildcard & Pattern Matching**: Support for `*` (superuser), `posts.*` (prefix scopes), and `users:*:view` (glob tokens).
-- 🏷️ **Role-to-Permissions Inheritance Matrix**: Pass `rolePermissions` to automatically grant permissions based on active roles.
-- 🚫 **`<Cannot />` Component & `not` Prop**: Easily declare inverse access logic for banners, upgrade buttons, or notices.
-- 🎣 **Direct Convenience Hooks**: `useCan()`, `useCannot()`, and `useHasRole()` for cleaner, single-line component checks.
-- 🧩 **Higher-Order Components (HOC)**: `withPermission()` and `withRole()` for wrapping routes, pages, or components.
+- 👑 **Multi-Level Transitive Role Hierarchy (`roleHierarchy`)**: Define role inheritance graphs (e.g., `superadmin` -> `admin` -> `editor` -> `user`) with automatic cycle protection and inherited permission propagation.
+- 🛡️ **ABAC / Resource-Based Policies (`policies` & `resource`)**: Evaluate fine-grained rules on resource data instances (e.g., `<Can permission="posts.edit" resource={post} />` and `useCan('posts.edit', post)`).
+- 🔀 **Declarative Switch-Case Authorization (`<Can.Switch>` / `<PermissionSwitch>`)**: Cleanly render the first matching branch with `<Can.Case>` and `<Can.Default>`, eliminating nested ternaries.
+- 🌐 **Scoped Nested Providers (`inherit={true}`)**: Effortlessly cascade and merge roles, permissions, policies, and hierarchies across workspaces, organizations, and sub-modules.
+- ⏳ **First-Class Async & Loading Support (`isLoading`, `loadingFallback`)**: Seamlessly handle API token fetches without flashing unauthorized fallbacks.
+- 🔍 **Diagnostics & Explain Engine (`checker.explain()`)**: Detailed reasons and matched rule origins for instant debugging and developer tooling.
 
 ---
 
@@ -83,18 +89,30 @@ import App from './App';
 
 export function Root() {
   const user = {
-    roles: ['editor'],
-    permissions: ['posts.*', 'comments.create'],
+    roles: ['superadmin'],
+    permissions: ['analytics.view'],
   };
 
   return (
     <PermissionProvider
       permissions={user.permissions}
       roles={user.roles}
+      // 1. Role hierarchy (superadmin automatically inherits admin & editor)
+      roleHierarchy={{
+        superadmin: ['admin'],
+        admin: ['editor'],
+        editor: ['viewer'],
+      }}
+      // 2. Role-to-permissions matrix
       rolePermissions={{
-        admin: ['*'],
-        editor: ['posts.*', 'comments.*'],
+        admin: ['users.*', 'posts.delete'],
+        editor: ['posts.create', 'posts.edit'],
         viewer: ['posts.read'],
+      }}
+      // 3. ABAC resource policies
+      policies={{
+        'posts.edit': (post, { hasRole }) =>
+          post.authorId === user.id || hasRole('admin'),
       }}
     >
       <App />
@@ -103,20 +121,25 @@ export function Root() {
 }
 ```
 
-### 2. Declarative UI with `<Can />` & `<Cannot />`
+### 2. Declarative UI with `<Can />`, `<Cannot />`, and `<Can.Switch />`
 
 ```tsx
 import { Can, Cannot } from 'react-permission-control';
 
-export function Dashboard() {
+export function Dashboard({ post }) {
   return (
     <div>
-      {/* 1. Wildcard matching (matches 'posts.*') */}
+      {/* 1. Wildcard matching (matches 'posts.*' or 'posts.create') */}
       <Can permission="posts.create">
         <button>+ New Post</button>
       </Can>
 
-      {/* 2. With fallback UI */}
+      {/* 2. ABAC Resource check */}
+      <Can permission="posts.edit" resource={post}>
+        <button>Edit This Post</button>
+      </Can>
+
+      {/* 3. With fallback UI */}
       <Can
         permission="posts.delete"
         fallback={<p className="text-muted">Deletion requires admin privileges.</p>}
@@ -124,7 +147,20 @@ export function Dashboard() {
         <button className="btn-danger">Delete Post</button>
       </Can>
 
-      {/* 3. Inverse rendering with <Cannot /> */}
+      {/* 4. Switch-Case Authorization */}
+      <Can.Switch fallback={<GuestBanner />}>
+        <Can.Case role="superadmin">
+          <SuperAdminConsole />
+        </Can.Case>
+        <Can.Case role="editor">
+          <EditorWorkspace />
+        </Can.Case>
+        <Can.Default>
+          <StandardUserView />
+        </Can.Default>
+      </Can.Switch>
+
+      {/* 5. Inverse rendering with <Cannot /> */}
       <Cannot permission="billing.manage">
         <div className="banner">Upgrade to Pro to unlock billing reports.</div>
       </Cannot>
@@ -136,12 +172,22 @@ export function Dashboard() {
 ### 3. Clean Checks with Hooks
 
 ```tsx
-import { useCan, useCannot, useHasRole } from 'react-permission-control';
+import { useCan, useCannot, useHasRole, usePermission } from 'react-permission-control';
 
-export function ActionToolbar() {
-  const canEdit = useCan('posts.edit');
+export function ActionToolbar({ post }) {
+  // Direct checks with optional ABAC resource evaluation
+  const canEdit = useCan('posts.edit', post);
   const cannotDelete = useCannot('posts.delete');
   const isAdmin = useHasRole('admin');
+
+  // Full checker engine
+  const { explain, isLoading } = usePermission();
+
+  if (isLoading) return <div>Loading permissions...</div>;
+
+  // Diagnostics / debugging:
+  console.log(explain('posts.edit', post));
+  // => { allowed: true, reason: 'Granted by resource policy for "posts.edit"', matchedType: 'policy' }
 
   return (
     <div>
@@ -157,185 +203,196 @@ export function ActionToolbar() {
 
 ## 📖 Usage Recipes
 
-### 1. Wildcard & Scope Patterns
+### 1. Multi-Level Role Hierarchy (`roleHierarchy`)
 
-`react-permission-control` allows permission hierarchy via wildcards:
+In real-world applications, roles form a hierarchy: a `superadmin` possesses all permissions of an `admin`, who possesses all permissions of an `editor`.
 
-- `*` - Grants all permissions (e.g. Superadmin).
-- `posts.*` or `posts:*` - Grants all sub-actions under `posts` (`posts.read`, `posts.create`, `posts.delete`).
-- `users:*:view` - Matches any token in that slot (`users:profile:view`, `users:settings:view`).
+```tsx
+<PermissionProvider
+  roles={['superadmin']}
+  roleHierarchy={{
+    superadmin: ['admin'],
+    admin: ['editor', 'support'],
+    editor: ['viewer'],
+  }}
+  rolePermissions={{
+    viewer: ['posts.read'],
+    editor: ['posts.create', 'posts.edit'],
+    admin: ['posts.delete', 'users.manage'],
+    superadmin: ['system.config'],
+  }}
+>
+  {/* Allowed! Automatically inherited across the hierarchy */}
+  <Can role="viewer"><ViewerToolbar /></Can>
+  <Can permission="posts.edit"><EditPostButton /></Can>
+</PermissionProvider>
+```
+
+### 2. ABAC & Resource-Based Policies (`policies` + `resource`)
+
+Attribute-Based Access Control (ABAC) allows conditional access based on instance attributes (e.g. checking whether `post.authorId === currentUser.id` or checking document visibility).
+
+```tsx
+<PermissionProvider
+  policies={{
+    'posts.edit': (post, { hasRole }) =>
+      post.authorId === currentUserId || hasRole('admin'),
+    'documents.read': (doc, { hasRole }) =>
+      doc.isPublic || doc.department === userDepartment || hasRole('manager'),
+  }}
+>
+  {/* Evaluates the policy on the specific post object */}
+  <Can permission="posts.edit" resource={post}>
+    <EditPostForm post={post} />
+  </Can>
+</PermissionProvider>
+```
+
+### 3. Switch-Case Authorization (`<Can.Switch>` / `<PermissionSwitch>`)
+
+Avoid cumbersome nested ternaries when presenting different UI tiers based on user rank:
+
+```tsx
+import { Can } from 'react-permission-control';
+
+<Can.Switch fallback={<AccessDenied />}>
+  <Can.Case role="superadmin">
+    <SuperAdminPanel />
+  </Can.Case>
+  <Can.Case role="manager" permission="reports.view">
+    <ManagerDashboard />
+  </Can.Case>
+  <Can.Case permission="posts.read">
+    <ReaderDashboard />
+  </Can.Case>
+  <Can.Default>
+    <PublicLandingPage />
+  </Can.Default>
+</Can.Switch>
+```
+
+### 4. Scoped Nested Providers (`inherit={true}`)
+
+Ideal for multi-tenant, workspace-oriented SaaS applications. Inner modules can inherit organization-wide permissions and inject workspace-specific roles:
+
+```tsx
+{/* Global Organization Provider */}
+<PermissionProvider roles={['member']} permissions={['org.view']}>
+  <Navigation />
+
+  {/* Scoped Project Provider */}
+  <PermissionProvider
+    inherit={true}
+    roles={['project_lead']}
+    permissions={['project.billing.view']}
+  >
+    {/* Has BOTH 'member' AND 'project_lead' roles! */}
+    <ProjectSettings />
+  </PermissionProvider>
+</PermissionProvider>
+```
+
+### 5. Async & Loading State Handling
+
+When user permissions are loaded asynchronously from an authentication API, `<Can>` will render `loadingFallback` instead of flashing forbidden `fallback`:
+
+```tsx
+<PermissionProvider
+  isLoading={isUserLoading}
+  loadingFallback={<SkeletonLoader />}
+  permissions={user?.permissions}
+  roles={user?.roles}
+>
+  {/* Shows SkeletonLoader until isUserLoading is false */}
+  <Can permission="dashboard.view" fallback={<Navigate to="/login" />}>
+    <Dashboard />
+  </Can>
+</PermissionProvider>
+```
+
+### 6. Diagnostics & Debugging with `explain()`
+
+Understand exactly why a permission check allowed or denied access:
+
+```ts
+const { explain } = usePermission();
+
+console.log(explain('posts.delete'));
+// {
+//   allowed: true,
+//   reason: 'Granted by role "admin" (inherited via role "superadmin") for permission "posts.delete"',
+//   matchedType: 'role_permission',
+//   role: 'admin',
+//   inheritedViaRole: 'superadmin'
+// }
+```
+
+### 7. Wildcard & Scope Patterns
+
+`react-permission-control` allows flexible globbing:
+- `*` - Superuser (matches everything).
+- `posts.*` - Matches `posts.read`, `posts.create`, `posts.delete`.
+- `users:*:view` - Matches `users:profile:view`, `users:settings:view`.
 
 ```tsx
 <PermissionProvider permissions={['posts.*', 'billing:view:*']}>
-  {/* Allowed because user has 'posts.*' */}
   <Can permission="posts.export">
     <ExportButton />
   </Can>
 </PermissionProvider>
 ```
 
-### 2. Role-to-Permission Matrix (`rolePermissions`)
+### 8. Higher-Order Components (HOC)
 
-Avoid duplicating permissions per user by mapping roles to their permission sets:
-
-```tsx
-<PermissionProvider
-  roles={['editor']}
-  rolePermissions={{
-    admin: ['*'],
-    editor: ['posts.*', 'comments.manage'],
-    viewer: ['posts.read'],
-  }}
->
-  {/* Automatically allowed for 'editor' role */}
-  <Can permission="posts.create">
-    <CreatePost />
-  </Can>
-</PermissionProvider>
-```
-
-### 3. Higher-Order Components (HOC)
-
-Protect entire page or view components using `withPermission` or `withRole`:
+Protect components or route elements cleanly:
 
 ```tsx
 import { withPermission, withRole } from 'react-permission-control';
 
-const AdminOnlyPanel = withRole(SettingsPanel, 'admin', {
+export const AdminOnlyPanel = withRole(SettingsPanel, 'admin', {
   fallback: <AccessDeniedPage />,
 });
 
-const EditUserPage = withPermission(UserEditor, 'users.edit', {
+export const EditUserPage = withPermission(UserEditor, 'users.edit', {
   fallback: <Navigate to="/unauthorized" />,
 });
 ```
 
-### 4. Multi-Permission Evaluation (`mode="any"` vs `mode="all"`)
-
-By default, passing multiple permissions requires **all** of them (`mode="all"`). Use `mode="any"` if at least one is sufficient:
-
-```tsx
-// Requires BOTH permissions (default)
-<Can permissions={['users.view', 'users.update']} mode="all">
-  <EditUserForm />
-</Can>
-
-// Requires AT LEAST ONE permission
-<Can permissions={['posts.edit', 'posts.delete']} mode="any">
-  <PostActionToolbar />
-</Can>
-```
-
-### 5. Custom Predicate Logic (ABAC / Attribute-Based)
-
-For dynamic rules depending on runtime parameters or context:
-
-```tsx
-<Can
-  check={({ hasRole, hasPermission }) =>
-    hasRole('superadmin') ||
-    (hasRole('manager') && hasPermission('payroll.approve'))
-  }
->
-  <ApprovePayrollButton />
-</Can>
-```
-
-### 6. Render Prop Pattern
-
-Pass `{ allowed, checker }` to children for fine-grained UI customization:
-
-```tsx
-<Can permission="billing.export">
-  {({ allowed, checker }) => (
-    <button
-      disabled={!allowed}
-      title={allowed ? 'Export report' : 'Permission missing'}
-    >
-      Export CSV {checker.hasRole('admin') ? '(Priority Queue)' : ''}
-    </button>
-  )}
-</Can>
-```
-
-### 7. Standalone Engine (Outside React)
-
-Use `createPermissionChecker` in Node.js, CLI utilities, API clients, or router navigation guards:
-
-```ts
-import { createPermissionChecker } from 'react-permission-control';
-
-const checker = createPermissionChecker({
-  roles: ['editor'],
-  rolePermissions: {
-    editor: ['posts.*'],
-  },
-});
-
-checker.can('posts.create'); // true (via wildcard)
-checker.cannot('users.delete'); // true
-checker.canAny(['posts.create', 'billing.manage']); // true
-checker.canAll(['posts.create', 'posts.read']); // true
-checker.hasRole('editor'); // true
-```
-
 ---
 
-## 💡 TypeScript Guide
+## 🛠️ TypeScript Guide
 
-`react-permission-control` is built with a **TypeScript-first** philosophy:
+### Defining Strict Permission & Role Unions
+
+Take full advantage of type safety and autocomplete throughout your codebase:
 
 ```tsx
-// types/auth.ts
 export type AppPermission =
+  | 'posts.read'
+  | 'posts.create'
+  | 'posts.edit'
+  | 'posts.delete'
   | 'users.view'
-  | 'users.create'
-  | 'users.update'
-  | 'users.delete'
-  | 'posts.*'
-  | 'settings.manage';
+  | 'users.manage'
+  | 'billing.view'
+  | 'billing.manage';
 
-export type AppRole = 'admin' | 'editor' | 'viewer';
-```
+export type AppRole = 'superadmin' | 'admin' | 'editor' | 'viewer';
 
-Pass generics to `<PermissionProvider />`, `<Can />`, and hooks:
+export function MyComponent() {
+  const { can, hasRole } = usePermission<AppPermission, AppRole>();
 
-```tsx
-import { PermissionProvider, useCan, Can } from 'react-permission-control';
-import type { AppPermission, AppRole } from './types/auth';
-
-function App() {
-  return (
-    <PermissionProvider<AppPermission, AppRole>
-      permissions={['posts.*']}
-      roles={['editor']}
-    >
-      <Main />
-    </PermissionProvider>
-  );
-}
-
-function Main() {
-  const canEdit = useCan<AppPermission>('users.update');
+  // Full IDE autocomplete for your permissions and roles!
+  const canEdit = can('posts.edit');
+  const isAdmin = hasRole('admin');
 
   return (
-    <Can<AppPermission, AppRole> permission="users.create">
-      <CreateUserButton />
+    <Can<AppPermission, AppRole> permission="posts.delete">
+      <DeleteButton />
     </Can>
   );
 }
 ```
-
----
-
-## 🔒 Security Best Practice
-
-> [!IMPORTANT]
-> **Client-side authorization is for User Experience (UX), NOT application security.**
->
-> Hiding buttons or routes improves UX and prevents unauthorized clicks, but client code can be inspected or bypassed by users.
->
-> **You MUST always enforce authorization checks on your backend server / API endpoints independently.**
 
 ---
 
@@ -345,10 +402,15 @@ function Main() {
 
 | Prop | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `permissions` | `readonly (string)[] \| null` | `[]` | List of permissions granted. |
-| `roles` | `readonly (string)[] \| null` | `[]` | List of roles assigned to the user. |
+| `permissions` | `readonly string[]` | `[]` | User permissions. |
+| `roles` | `readonly string[]` | `[]` | User roles. |
+| `roleHierarchy` | `RoleHierarchy` | `undefined` | Role inheritance graph (`{ admin: ['editor'] }`). |
+| `rolePermissions`| `RolePermissionsMap` | `undefined` | Role-to-permission mappings. |
+| `policies` | `PoliciesMap` | `undefined` | ABAC resource evaluation functions. |
 | `wildcard` | `boolean` | `true` | Enable wildcard glob matching (`*`, `posts.*`). |
-| `rolePermissions`| `RolePermissionsMap` | `undefined` | Map of roles to inherited permissions. |
+| `isLoading` | `boolean` | `false` | Asynchronous loading flag. |
+| `loadingFallback`| `ReactNode` | `null` | Default UI while loading. |
+| `inherit` | `boolean` | `false` | Inherit and merge parent context. |
 | `children` | `ReactNode` | *(Required)* | Child component subtree. |
 
 ### `<Can />` and `<Cannot />`
@@ -359,43 +421,51 @@ function Main() {
 | `permissions` | `readonly string[]` | `undefined` | Array of permissions to check. |
 | `role` | `string` | `undefined` | Single required role. |
 | `roles` | `readonly string[]` | `undefined` | Array of roles to check. |
+| `resource` | `unknown` | `undefined` | Resource instance evaluated against ABAC policies. |
 | `mode` | `'any' \| 'all'` | `'all'` | Evaluation mode when multiple permissions/roles are passed. |
 | `not` | `boolean` | `false` (`true` on `<Cannot>`) | Inverts the authorization decision. |
 | `check` | `(context) => boolean` | `undefined` | Custom authorization predicate function. |
-| `fallback` | `ReactNode` | `null` | Element to render when authorization condition is not met. |
+| `isLoading` | `boolean` | `context.isLoading` | Override loading state. |
+| `loadingFallback`| `ReactNode` | `context.loadingFallback` | Rendered while loading. |
+| `fallback` | `ReactNode` | `null` | Element rendered when authorization fails. |
 | `children` | `ReactNode \| CanRenderProp` | `null` | Rendered when allowed, or render prop function. |
+
+### `<Can.Switch />` / `<PermissionSwitch />`
+
+| Prop | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `fallback` | `ReactNode` | `null` | Rendered if no case matches and no Default is present. |
+| `isLoading` | `boolean` | `context.isLoading` | Loading state override. |
+| `loadingFallback`| `ReactNode` | `context.loadingFallback` | Rendered while loading. |
+| `children` | `ReactNode` | `null` | `<Can.Case>` and `<Can.Default>` elements. |
 
 ### Hooks
 
 ```ts
-// Standalone Direct Hooks
-const canEdit = useCan(permission | permissions[], mode?);
-const cannotDelete = useCannot(permission | permissions[], mode?);
-const isAdmin = useHasRole(role | roles[], mode?);
+// Direct Hooks
+const canEdit = useCan('posts.edit', resource?);
+const cannotDelete = useCannot('posts.delete', resource?);
+const isAdmin = useHasRole('admin');
 
-// Full Engine Hook
+// Comprehensive Engine Hook
 const {
-  permissions,        // readonly string[]
-  roles,              // readonly string[]
+  permissions,        // readonly string[] (direct permissions)
+  roles,              // readonly string[] (direct roles)
+  effectiveRoles,     // readonly string[] (direct + inherited roles)
+  isLoading,          // boolean
   wildcard,           // boolean
-  can,                // (permission: string) => boolean
-  cannot,             // (permission: string) => boolean
-  canAny,             // (permissions: string[]) => boolean
-  canAll,             // (permissions: string[]) => boolean
-  hasRole,            // (role: string) => boolean
-  hasAnyRole,         // (roles: string[]) => boolean
-  hasAllRoles,        // (roles: string[]) => boolean
-  hasAnyPermission,   // (permissions: string[]) => boolean
-  hasAllPermissions,  // (permissions: string[]) => boolean
-  check               // (predicateFn) => boolean
+  can,                // (permission, resource?) => boolean
+  cannot,             // (permission, resource?) => boolean
+  explain,            // (permission, resource?) => PermissionExplanation
+  canAny,             // (permissions[]) => boolean
+  canAll,             // (permissions[]) => boolean
+  hasRole,            // (role) => boolean
+  hasAnyRole,         // (roles[]) => boolean
+  hasAllRoles,        // (roles[]) => boolean
+  hasAnyPermission,   // (permissions[]) => boolean
+  hasAllPermissions,  // (permissions[]) => boolean
+  check,              // (predicateFn) => boolean
 } = usePermission();
-```
-
-### Higher-Order Components (HOC)
-
-```tsx
-const ProtectedComponent = withPermission(Component, permission, options);
-const ProtectedByRole = withRole(Component, role, options);
 ```
 
 ---

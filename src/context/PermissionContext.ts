@@ -1,4 +1,4 @@
-import { createContext } from 'react';
+import { createContext, type ReactNode } from 'react';
 import type { PermissionChecker } from '../core/types';
 
 /**
@@ -11,3 +11,12 @@ export const PermissionContext = createContext<PermissionChecker<any, any> | nul
 );
 
 PermissionContext.displayName = 'PermissionContext';
+
+/**
+ * Internal React context for holding the active loadingFallback component.
+ */
+export const PermissionLoadingFallbackContext = createContext<ReactNode | null>(
+  null,
+);
+
+PermissionLoadingFallbackContext.displayName = 'PermissionLoadingFallbackContext';

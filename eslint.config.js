@@ -26,6 +26,8 @@ export default [
     rules: {
       'no-undef': 'off', // TypeScript compiler already checks for undefined symbols
       'no-unused-vars': 'off',
+      'no-redeclare': 'off',
+      '@typescript-eslint/no-redeclare': 'error',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'error',
       'react-hooks/rules-of-hooks': 'error',
