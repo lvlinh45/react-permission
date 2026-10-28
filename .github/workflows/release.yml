@@ -23,6 +23,7 @@ on:
 permissions:
   contents: write
   id-token: write
+  packages: write
 
 jobs:
   test-and-build:
@@ -143,3 +144,18 @@ jobs:
           else
             echo "NPM_TOKEN secret is not configured in GitHub Secrets. Skipping npm publish."
           fi
+
+      - name: Publish to GitHub Packages
+        if: steps.check_version.outputs.tag_exists == 'false'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Publishing to GitHub Packages registry..."
+          node -e '
+            const fs = require("fs");
+            const pkg = JSON.parse(fs.readFileSync("./package.json", "utf8"));
+            pkg.name = "@lvlinh45/react-permission-control";
+            fs.writeFileSync("./package.json", JSON.stringify(pkg, null, 2));
+          '
+          npm config set //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
+          npm publish --registry https://npm.pkg.github.com --access public
